@@ -1,0 +1,35 @@
+name: Publish privacy page
+'on':
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: privacy-pages
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify final privacy document
+        run: |
+          python3 - <<'PYTHON'
+          from pathlib import Path
+          page = Path('docs/privacy/index.html').read_text()
+          if '게시 전 검토용 초안' in page or '[게시 전 확정:' in page:
+              raise SystemExit('Privacy page is still a draft. Verify production retention/backup settings and finalize the document before publishing.')
+          assert 'jjw3816@gmail.com' in page
+          PYTHON
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs
+      - name: Publish
+        id: deployment
+        uses: actions/deploy-pages@v4
